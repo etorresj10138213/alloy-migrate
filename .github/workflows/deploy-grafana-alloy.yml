@@ -58,7 +58,7 @@ jobs:
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           # La clave del Service Account es CRUCIAL para autenticar
-          service_account_key: ${{ secrets.GKE_SA_KEY }} 
+          service_account_key: ${{ secrets.GCP_SA_KEY }} 
           export_default_credentials: true # Esto es necesario para la siguiente acción
 
       - name: 🎯 Get GKE Kubeconfig (Connect to Cluster)
@@ -113,7 +113,7 @@ jobs:
         uses: google-github-actions/setup-gcloud@v1
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
-          service_account_key: ${{ secrets.GKE_SA_KEY }}
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
           export_default_credentials: true
 
       - name: 🎯 Get GKE Kubeconfig (Connect to Cluster)
