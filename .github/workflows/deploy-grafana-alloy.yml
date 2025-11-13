@@ -2,7 +2,8 @@ name: 'CI/CD: Deploy Grafana Alloy to Istio/GKE'
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: 
+      - main
     paths:
       - 'config/config.alloy'    # Se activa al cambiar la configuración de Alloy
       - 'k8s/alloy-deployment.yaml' # Se activa al cambiar el Deployment de K8s
@@ -17,9 +18,11 @@ jobs:
         uses: actions/checkout@v4
         
       - name: ⚙️ Install Grafana Alloy
-        # Instala el binario de 'alloy' para la validación
-        uses: grafana/setup-alloy@v1
+        # Usar la acción correcta: grafana/setup-agent
+        uses: grafana/setup-agent@v1 # <-- ACCIÓN CORRECTA
         with:
+          # Para la versión de Alloy, usa 'alloy' como el tipo de binario
+          type: 'alloy'
           version: 'latest'
 
       - name: ✅ Validate Alloy Configuration Syntax
@@ -81,4 +84,3 @@ jobs:
           kubectl apply -f k8s/alloy-deployment.yaml
           
           echo "Despliegue de Grafana Alloy iniciado. Verifica los pods y el sidecar de Istio."
-          
