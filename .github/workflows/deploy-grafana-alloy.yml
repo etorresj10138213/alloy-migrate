@@ -86,6 +86,8 @@ jobs:
         id: extract
         run: |
           # 1. Muestra las variables usadas para el diagnóstico
+          echo "Instalando yq..."
+          sudo apt-get update && sudo apt-get install -y yq
           echo "DEBUG: ConfigMap=${PROMETHEUS_CONFIGMAP_NAME}, Namespace=${NAMESPACE}, Key=${CONFIG_KEY}"
           
           # 2. Comando principal de extracción con go-template
@@ -111,8 +113,17 @@ jobs:
           fi
           
           echo "Configuración de Prometheus extraída con éxito."
-          cat prometheus.yaml # Muestra el contenido para verificar
+          cat prometheus.yaml # Muestra el contenido original
 
+          # 3. FILTRADO: Eliminar secciones no soportadas por 'alloy convert'
+          echo "Filtrando configuraciones no soportadas (rule_files, alerting)..."
+          # Usa yq para eliminar las claves 'rule_files' y 'alerting' y guarda en el mismo archivo
+          yq 'del(.rule_files) | del(.alerting)' prometheus.yaml > filtered_prometheus.yaml
+          mv filtered_prometheus.yaml prometheus.yaml
+          
+          echo "Configuración filtrada:"
+          cat prometheus.yaml # Muestra el contenido filtrado
+          
       - name: 🔄 Convert Prometheus to Alloy & Validate
         id: convert_validate
         run: |
