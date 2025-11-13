@@ -85,19 +85,34 @@ jobs:
       - name: 📥 Extract Prometheus Config from GKE ConfigMap
         id: extract
         run: |
-          echo "Extrayendo configuración de Prometheus de ConfigMap: ${PROMETHEUS_CONFIGMAP_NAME}..."
+          # 1. Muestra las variables usadas para el diagnóstico
+          echo "DEBUG: ConfigMap=${PROMETHEUS_CONFIGMAP_NAME}, Namespace=${NAMESPACE}, Key=${CONFIG_KEY}"
           
-          # Usa kubectl para obtener el ConfigMap, extrae la clave del YAML (-o jsonpath)
-          # y guarda el contenido en el archivo prometheus.yaml
+          # 2. Comando principal de extracción con go-template
+          # El error persiste: La clave o el nombre del CM es incorrecto.
           kubectl get configmap ${PROMETHEUS_CONFIGMAP_NAME} -n ${NAMESPACE} -o go-template='{{ index .data "${CONFIG_KEY}" }}' > prometheus.yaml
           
-          # Verifica que el archivo no esté vacío (indicando una extracción exitosa)
+          # 3. VERIFICACIÓN DEL RESULTADO
           if [ ! -s prometheus.yaml ]; then
-            echo "Error: El archivo prometheus.yaml está vacío. El ConfigMap o la clave son incorrectos."
-            exit 1
+            echo "Error Crítico: El archivo prometheus.yaml está vacío o contiene <no value>."
+            echo "Revisar los valores de las variables PROMETHEUS_CONFIGMAP_NAME y CONFIG_KEY."
+            
+            # --- Solución Alternativa de Extracción (más robusta) ---
+            echo "Intentando extracción alternativa..."
+            kubectl get configmap ${PROMETHEUS_CONFIGMAP_NAME} -n ${NAMESPACE} -o json | jq -r '.data."'"${CONFIG_KEY}"'"' > prometheus.yaml.alt
+            
+            if [ -s prometheus.yaml.alt ]; then
+                echo "ÉXITO con JSON/JQ. Renombrando..."
+                mv prometheus.yaml.alt prometheus.yaml
+            else
+                echo "FALLO con todos los métodos de extracción."
+                exit 1
+            fi
           fi
-          echo "Configuración de Prometheus extraída con éxito."
           
+          echo "Configuración de Prometheus extraída con éxito."
+          cat prometheus.yaml # Muestra el contenido para verificar
+
       - name: 🔄 Convert Prometheus to Alloy & Validate
         id: convert_validate
         run: |
