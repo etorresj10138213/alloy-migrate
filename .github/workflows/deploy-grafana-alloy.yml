@@ -44,7 +44,7 @@ jobs:
           unzip ${FILENAME}
           
           # Mover el binario 'alloy' al PATH
-          if [ -f alloy ]; then
+          if [ -f alloy-linux-amd64 ]; then
             sudo mv alloy-linux-amd64 /usr/local/bin/alloy
             chmod 777 /usr/local/bin/alloy
           else
