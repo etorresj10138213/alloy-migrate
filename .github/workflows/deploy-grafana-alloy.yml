@@ -81,5 +81,4 @@ jobs:
           kubectl apply -f k8s/alloy-deployment.yaml
           
           echo "Despliegue de Grafana Alloy iniciado. Verifica los pods y el sidecar de Istio."
-
-# Nota: La actualización de la fuente de datos en la instancia de Grafana de istio-system debe hacerse por separado.
+          
