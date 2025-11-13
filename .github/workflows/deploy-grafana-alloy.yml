@@ -1,0 +1,85 @@
+name: 'CI/CD: Deploy Grafana Alloy to Istio/GKE'
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    paths:
+      - 'config/config.alloy'    # Se activa al cambiar la configuración de Alloy
+      - 'k8s/alloy-deployment.yaml' # Se activa al cambiar el Deployment de K8s
+  workflow_dispatch:
+
+jobs:
+  validate_config:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: ⬇️ Checkout code
+        uses: actions/checkout@v4
+        
+      - name: ⚙️ Install Grafana Alloy
+        # Instala el binario de 'alloy' para la validación
+        uses: grafana/setup-alloy@v1
+        with:
+          version: 'latest'
+
+      - name: ✅ Validate Alloy Configuration Syntax
+        id: validate
+        # Comando para verificar la sintaxis del archivo que se usará en el ConfigMap
+        run: |
+          if [ -f config/config.alloy ]; then
+            echo "Validando sintaxis de config/config.alloy..."
+            alloy validate config/config.alloy
+            echo "La validación de sintaxis fue exitosa."
+          else
+            echo "El archivo config/config.alloy es requerido y no fue encontrado."
+            exit 1 
+          fi
+          
+      - name: 🧪 Simulate Alloy Run (Dry Run)
+        # Intenta inicializar todos los componentes sin conectarse
+        if: success() && steps.validate.outcome == 'success'
+        run: |
+          echo "Simulando ejecución de Alloy (Dry Run)..."
+          alloy run config/config.alloy --dry-run
+          echo "Simulación de ejecución exitosa."
+
+  deploy_alloy:
+    needs: validate_config
+    runs-on: ubuntu-latest
+    # Se ejecuta solo si la validación es exitosa
+    environment: GKE-Production # Puedes usar un entorno de GitHub para gestionar credenciales
+    
+    steps:
+      - name: ⬇️ Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔒 Setup GKE Credentials
+        # Reemplaza con tu método real de autenticación GKE (ej. workloadi-identity)
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ secrets.GKE_PROJECT }}
+          service_account_key: ${{ secrets.GKE_SA_KEY }} # Usa un Secret de GitHub
+          export_default_credentials: true
+
+      - name: 🎯 Get GKE Kubeconfig
+        # Conéctate al clúster donde está Istio-System
+        uses: google-github-actions/get-gke-credentials@v1
+        with:
+          cluster_name: ${{ secrets.GKE_CLUSTER_NAME }}
+          location: ${{ secrets.GKE_CLUSTER_LOCATION }}
+          
+      - name: 🚀 Apply Alloy Configuration and Deployment
+        # Aplica los manifiestos de Kubernetes
+        run: |
+          NAMESPACE="istio-system" # Define el namespace donde quieres desplegar Alloy (no istio-system)
+          echo "Desplegando Grafana Alloy en el namespace ${NAMESPACE}..."
+          
+          # 1. Crear/Actualizar ConfigMap con la nueva config.alloy
+          kubectl create configmap grafana-alloy-config -n ${NAMESPACE} --from-file=config.alloy=config/config.alloy --dry-run=client -o yaml | kubectl apply -f -
+          
+          # 2. Aplicar el Deployment (que montará el ConfigMap)
+          kubectl apply -f k8s/alloy-deployment.yaml
+          
+          echo "Despliegue de Grafana Alloy iniciado. Verifica los pods y el sidecar de Istio."
+
+# Nota: La actualización de la fuente de datos en la instancia de Grafana de istio-system debe hacerse por separado.
