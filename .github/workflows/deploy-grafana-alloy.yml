@@ -72,7 +72,7 @@ jobs:
         uses: google-github-actions/get-gke-credentials@v1
         with:
           cluster_name: ${{ secrets.GKE_CLUSTER }}
-          location: ${{ secrets.GKE_CLUSTER_LOCATION }}
+          location: ${{ secrets.GKE_ZONE }}
           
       - name: 📥 Extract Prometheus Config from GKE ConfigMap
         id: extract
@@ -126,7 +126,7 @@ jobs:
         uses: google-github-actions/get-gke-credentials@v1
         with:
           cluster_name: ${{ secrets.GKE_CLUSTER }}
-          location: ${{ secrets.GKE_CLUSTER_LOCATION }}
+          location: ${{ secrets.GKE_ZONE }}
           
       - name: 🚀 Apply Alloy Configuration and Deployment
         run: |
