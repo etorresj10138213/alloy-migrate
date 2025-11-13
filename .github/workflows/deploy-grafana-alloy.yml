@@ -64,11 +64,13 @@ jobs:
           
       - name: 🔒 Setup GKE Credentials
         # Configura credenciales para que kubectl pueda acceder al clúster
-        uses: google-github-actions/get-gke-credentials@v2
+        uses: google-github-actions/setup-gcloud@v1
         with:
           cluster_name: ${{ env.GKE_CLUSTER }}
           location: ${{ env.GKE_ZONE }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
+          service_account_key: ${{ secrets.GKE_SA_KEY }}
+          export_default_credentials: true
 
       - name: 🎯 Get GKE Kubeconfig
         # Conéctate al clúster
@@ -120,11 +122,13 @@ jobs:
 
       - name: 🔒 Setup GKE Credentials
         # Asegúrate de configurar los secrets en tu repositorio
-        uses: google-github-actions/get-gke-credentials@v2
+        uses: google-github-actions/setup-gcloud@v1
         with:
           cluster_name: ${{ env.GKE_CLUSTER }}
           location: ${{ env.GKE_ZONE }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
+          service_account_key: ${{ secrets.GKE_SA_KEY }}
+          export_default_credentials: true
 
       - name: 🎯 Get GKE Kubeconfig
         uses: google-github-actions/get-gke-credentials@v1
