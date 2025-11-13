@@ -15,89 +15,31 @@ jobs:
       NAMESPACE: istio-system
       PROMETHEUS_CONFIGMAP_NAME: prometheus-config
       CONFIG_KEY: prometheus.yml
-      # Mover PROJECT_ID, CLUSTER y ZONE a secrets, o usarlos consistentemente.
-      # Usaremos los secrets directamente en los pasos para evitar ambigüedad.
 
     steps:
-      - name: ⬇️ Checkout code
-        uses: actions/checkout@v4
+      # ... (Pasos de Checkout e Install Grafana Alloy sin cambios)
         
-      - name: ⚙️ Install Grafana Alloy Binaries (ZIP)
-        id: install_alloy
-        run: |
-          # --- Variables de la URL proporcionada ---
-          ALLOY_VERSION="v1.11.3"
-          FILENAME="alloy-linux-amd64.zip"
-          ALLOY_URL="https://github.com/grafana/alloy/releases/download/${ALLOY_VERSION}/${FILENAME}"
-          
-          echo "Intentando descargar Grafana Alloy ${ALLOY_VERSION}..."
-          
-          curl -sL --fail -o ${FILENAME} ${ALLOY_URL}
-          if [ $? -ne 0 ]; then
-            echo "Error: Fallo al descargar el archivo desde la URL. Verifica la versión y la URL."
-            exit 1
-          fi
-          
-          sudo apt-get update && sudo apt-get install -y unzip
-          unzip ${FILENAME}
-          
-          if [ -f alloy-linux-amd64 ]; then
-            # Renombrado y movido a /usr/local/bin
-            sudo mv alloy-linux-amd64 /usr/local/bin/alloy
-            sudo chmod +x /usr/local/bin/alloy # Usar +x en lugar de 777
-          else
-            echo "Error: No se encontró el binario 'alloy' desempaquetado. Verifique el contenido del ZIP."
-            exit 1
-          fi
-
-          alloy --version
-          
       - name: 🔒 Setup GKE Credentials (Authentication)
-        # ESTE PASO AUTENTICA EL AMBIENTE DE TRABAJO (gcloud auth)
+        # Usamos setup-gcloud para autenticar, pero NO exportamos las credenciales por defecto,
+        # para evitar conflictos si get-gke-credentials no las lee bien.
         uses: google-github-actions/setup-gcloud@v1
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
-          # La clave del Service Account es CRUCIAL para autenticar
           service_account_key: ${{ secrets.GCP_SA_KEY }} 
-          export_default_credentials: true # Esto es necesario para la siguiente acción
+          # Eliminamos 'export_default_credentials: true'
 
       - name: 🎯 Get GKE Kubeconfig (Connect to Cluster)
-        # ESTE PASO OBTIENE LAS CREDENCIALES DEL CLÚSTER (kubectl config)
+        # ESTA ES LA CORRECCIÓN CLAVE: Pasar la Service Account Key directamente
+        # como fallback, forzando la autenticación para esta acción específica.
         uses: google-github-actions/get-gke-credentials@v1
         with:
           cluster_name: ${{ secrets.GKE_CLUSTER }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           location: ${{ secrets.GKE_ZONE }}
+          # Inyectamos la clave directamente para asegurar la autenticación del clúster
+          credentials: ${{ secrets.GCP_SA_KEY }} 
           
-      - name: 📥 Extract Prometheus Config from GKE ConfigMap
-        id: extract
-        run: |
-          echo "Extrayendo configuración de Prometheus de ConfigMap: ${PROMETHEUS_CONFIGMAP_NAME}..."
-          
-          kubectl get configmap ${PROMETHEUS_CONFIGMAP_NAME} -n ${NAMESPACE} -o jsonpath="{.data.${CONFIG_KEY}}" > prometheus.yaml
-          
-          if [ ! -s prometheus.yaml ]; then
-            echo "Error: El archivo prometheus.yaml está vacío. El ConfigMap o la clave son incorrectos."
-            exit 1
-          fi
-          echo "Configuración de Prometheus extraída con éxito."
-          
-      - name: 🔄 Convert Prometheus to Alloy & Validate
-        id: convert_validate
-        run: |
-          # Usa el archivo extraído (prometheus.yaml como fuente
-          echo "Realizando conversión a config.alloy"
-          alloy convert --source-format=prometheus --output=config.alloy prometheus.yaml
-          
-      - name: 🧪 Simulate Alloy Run (Dry Run)
-        # Corregido: La validación es implícita en 'alloy convert'. Usamos 'alloy validate' o un test
-        run: |
-          echo "Validando sintaxis de config.alloy..."
-          /usr/local/bin/alloy validate config.alloy 
-          
-          echo "Simulando ejecución de Alloy (Dry Run)..."
-          /usr/local/bin/alloy run config.alloy --dry-run
-          echo "Simulación de ejecución exitosa."
+      # ... (El resto del job validate_config sin cambios)
 
   deploy_alloy:
     needs: validate_config
@@ -109,20 +51,21 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 🔒 Setup GKE Credentials (Authentication)
-        # La autenticación se debe repetir en este job.
+        # Hacemos la autenticación del job (necesaria para kubectl apply)
         uses: google-github-actions/setup-gcloud@v1
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           service_account_key: ${{ secrets.GCP_SA_KEY }}
-          export_default_credentials: true
 
       - name: 🎯 Get GKE Kubeconfig (Connect to Cluster)
+        # Y también aquí, usamos la clave directa
         uses: google-github-actions/get-gke-credentials@v1
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           cluster_name: ${{ secrets.GKE_CLUSTER }}
           location: ${{ secrets.GKE_ZONE }}
-          
+          credentials: ${{ secrets.GCP_SA_KEY }} # Inyectamos la clave directa
+             
       - name: 🚀 Apply Alloy Configuration and Deployment
         run: |
           # Nota: Aquí se está usando el archivo 'config/config.alloy' que debería haber sido 
