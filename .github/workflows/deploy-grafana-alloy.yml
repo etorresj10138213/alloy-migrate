@@ -76,9 +76,11 @@ jobs:
         # Conéctate al clúster
         uses: google-github-actions/get-gke-credentials@v1
         with:
-          cluster_name: ${{ secrets.GKE_CLUSTER }}
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location: ${{ env.GKE_ZONE }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
-          location: ${{ secrets.GKE_ZONE }}
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          export_default_credentials: true
           
       - name: 📥 Extract Prometheus Config from GKE ConfigMap
         id: extract
