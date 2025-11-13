@@ -121,7 +121,7 @@ jobs:
         # Asegúrate de configurar los secrets en tu repositorio
         uses: google-github-actions/setup-gcloud@v2
         with:
-          project_id: ${{ env.PROJECT_ID }}
+          project_id: ${{ env.GCP_PROJECT_ID }}
           # Asegura que las credenciales estén disponibles para Docker y kubectl
           setup_gcloud: true 
 
