@@ -71,7 +71,7 @@ jobs:
         # Conéctate al clúster
         uses: google-github-actions/get-gke-credentials@v1
         with:
-          cluster_name: ${{ secrets.GKE_CLUSTER_NAME }}
+          cluster_name: ${{ secrets.GKE_CLUSTER }}
           location: ${{ secrets.GKE_CLUSTER_LOCATION }}
           
       - name: 📥 Extract Prometheus Config from GKE ConfigMap
@@ -125,7 +125,7 @@ jobs:
       - name: 🎯 Get GKE Kubeconfig
         uses: google-github-actions/get-gke-credentials@v1
         with:
-          cluster_name: ${{ secrets.GKE_CLUSTER_NAME }}
+          cluster_name: ${{ secrets.GKE_CLUSTER }}
           location: ${{ secrets.GKE_CLUSTER_LOCATION }}
           
       - name: 🚀 Apply Alloy Configuration and Deployment
