@@ -11,7 +11,11 @@ on:
 jobs:
   validate_config:
     runs-on: ubuntu-latest
-    
+    env:
+      NAMESPACE: istio-system
+      PROMETHEUS_CONFIGMAP_NAME: prometheus-config # Nombre de tu ConfigMap actual de Prometheus
+      CONFIG_KEY: prometheus.yml
+
     steps:
       - name: ⬇️ Checkout code
         uses: actions/checkout@v4
@@ -55,25 +59,49 @@ jobs:
           # Verificar la instalación final
           alloy --version
           
-      - name: ✅ Validate Alloy Configuration Syntax
-        id: validate
-        run: |
-          if [ -f config/config.alloy ]; then
-            echo "Validando sintaxis de config/config.alloy..."
-            # Comando clave: Valida sintaxis y referencias entre componentes
-            alloy validate config/config.alloy
-            echo "La validación de sintaxis fue exitosa."
-          else
-            echo "El archivo config/config.alloy es requerido y no fue encontrado."
-            exit 1 
-          fi
+      - name: 🔒 Setup GKE Credentials
+        # Configura credenciales para que kubectl pueda acceder al clúster
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ secrets.GKE_PROJECT }}
+          service_account_key: ${{ secrets.GKE_SA_KEY }} # Usa un Secret de GitHub
+          export_default_credentials: true
+
+      - name: 🎯 Get GKE Kubeconfig
+        # Conéctate al clúster
+        uses: google-github-actions/get-gke-credentials@v1
+        with:
+          cluster_name: ${{ secrets.GKE_CLUSTER_NAME }}
+          location: ${{ secrets.GKE_CLUSTER_LOCATION }}
           
+      - name: 📥 Extract Prometheus Config from GKE ConfigMap
+        id: extract
+        run: |
+          echo "Extrayendo configuración de Prometheus de ConfigMap: ${PROMETHEUS_CONFIGMAP_NAME}..."
+          
+          # Usa kubectl para obtener el ConfigMap, extrae la clave del YAML (-o jsonpath)
+          # y guarda el contenido en el archivo prometheus.yaml
+          kubectl get configmap ${PROMETHEUS_CONFIGMAP_NAME} -n ${NAMESPACE} -o jsonpath="{.data.${CONFIG_KEY}}" > prometheus.yaml
+          
+          # Verifica que el archivo no esté vacío (indicando una extracción exitosa)
+          if [ ! -s prometheus.yaml ]; then
+            echo "Error: El archivo prometheus.yaml está vacío. El ConfigMap o la clave son incorrectos."
+            exit 1
+          fi
+          echo "Configuración de Prometheus extraída con éxito."
+          
+      - name: 🔄 Convert Prometheus to Alloy & Validate
+        id: convert_validate
+        run: |
+          # Usa el archivo extraído (prometheus.yaml como fuente
+          echo "Realizando conversión a config.alloy"
+          alloy convert --source-format=prometheus --output=config.alloy prometheus.yaml          
       - name: 🧪 Simulate Alloy Run (Dry Run)
         if: success() && steps.validate.outcome == 'success'
         run: |
           echo "Simulando ejecución de Alloy (Dry Run)..."
           # Comando clave: Intenta inicializar todos los componentes sin conectarse a la red.
-          alloy run config/config.alloy --dry-run
+          alloy run config.alloy --dry-run
           echo "Simulación de ejecución exitosa."
 
   deploy_alloy:
