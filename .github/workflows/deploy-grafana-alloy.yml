@@ -45,7 +45,8 @@ jobs:
           
           # Mover el binario 'alloy' al PATH
           if [ -f alloy ]; then
-            sudo mv alloy /usr/local/bin/
+            sudo mv alloy-linux-amd64 /usr/local/bin/alloy
+            chmod 777 /usr/local/bin/alloy
           else
             echo "Error: No se encontró el binario 'alloy' desempaquetado. Verifique el contenido del ZIP."
             exit 1
