@@ -63,7 +63,7 @@ jobs:
         # Configura credenciales para que kubectl pueda acceder al clúster
         uses: google-github-actions/setup-gcloud@v1
         with:
-          project_id: ${{ secrets.GKE_PROJECT }}
+          project_id: ${{ secrets.GKE_PROJECT_ID }}
           service_account_key: ${{ secrets.GKE_SA_KEY }} # Usa un Secret de GitHub
           export_default_credentials: true
 
@@ -118,7 +118,7 @@ jobs:
         # Asegúrate de configurar los secrets en tu repositorio
         uses: google-github-actions/setup-gcloud@v1
         with:
-          project_id: ${{ secrets.GKE_PROJECT }}
+          project_id: ${{ secrets.GKE_PROJECT_ID }}
           service_account_key: ${{ secrets.GKE_SA_KEY }} 
           export_default_credentials: true
 
