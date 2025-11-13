@@ -130,7 +130,6 @@ jobs:
           
       - name: 🚀 Apply Alloy Configuration and Deployment
         run: |
-          NAMESPACE="monitoring"
           echo "Desplegando Grafana Alloy en el namespace ${NAMESPACE}..."
           
           # 1. Crear/Actualizar ConfigMap
