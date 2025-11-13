@@ -13,11 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NAMESPACE: istio-system
-      PROMETHEUS_CONFIGMAP_NAME: prometheus-config # Nombre de tu ConfigMap actual de Prometheus
+      PROMETHEUS_CONFIGMAP_NAME: prometheus-config
       CONFIG_KEY: prometheus.yml
-      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-      GKE_CLUSTER: ${{ secrets.GKE_CLUSTER }}
-      GKE_ZONE: ${{ secrets.GKE_ZONE }}
+      # Mover PROJECT_ID, CLUSTER y ZONE a secrets, o usarlos consistentemente.
+      # Usaremos los secrets directamente en los pasos para evitar ambigüedad.
 
     steps:
       - name: ⬇️ Checkout code
@@ -33,47 +32,37 @@ jobs:
           
           echo "Intentando descargar Grafana Alloy ${ALLOY_VERSION}..."
           
-          # Descarga el archivo ZIP, falla si el servidor devuelve un error
-          # --fail asegura que falle si la URL es incorrecta
           curl -sL --fail -o ${FILENAME} ${ALLOY_URL}
-          
           if [ $? -ne 0 ]; then
             echo "Error: Fallo al descargar el archivo desde la URL. Verifica la versión y la URL."
             exit 1
           fi
           
-          # Instalar unzip si no está presente (necesario para manejar archivos .zip)
-          echo "Instalando unzip..."
           sudo apt-get update && sudo apt-get install -y unzip
-          
-          # Descomprimir el archivo ZIP
-          echo "Descomprimiendo el binario..."
           unzip ${FILENAME}
           
-          # Mover el binario 'alloy' al PATH
           if [ -f alloy-linux-amd64 ]; then
+            # Renombrado y movido a /usr/local/bin
             sudo mv alloy-linux-amd64 /usr/local/bin/alloy
-            chmod 777 /usr/local/bin/alloy
+            sudo chmod +x /usr/local/bin/alloy # Usar +x en lugar de 777
           else
             echo "Error: No se encontró el binario 'alloy' desempaquetado. Verifique el contenido del ZIP."
             exit 1
           fi
 
-          # Verificar la instalación final
           alloy --version
           
-      - name: 🔒 Setup GKE Credentials
-        # Configura credenciales para que kubectl pueda acceder al clúster
+      - name: 🔒 Setup GKE Credentials (Authentication)
+        # ESTE PASO AUTENTICA EL AMBIENTE DE TRABAJO (gcloud auth)
         uses: google-github-actions/setup-gcloud@v1
         with:
-          cluster_name: ${{ env.GKE_CLUSTER }}
-          location: ${{ env.GKE_ZONE }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
-          service_account_key: ${{ secrets.GKE_SA_KEY }}
-          export_default_credentials: true
+          # La clave del Service Account es CRUCIAL para autenticar
+          service_account_key: ${{ secrets.GKE_SA_KEY }} 
+          export_default_credentials: true # Esto es necesario para la siguiente acción
 
-      - name: 🎯 Get GKE Kubeconfig
-        # Conéctate al clúster
+      - name: 🎯 Get GKE Kubeconfig (Connect to Cluster)
+        # ESTE PASO OBTIENE LAS CREDENCIALES DEL CLÚSTER (kubectl config)
         uses: google-github-actions/get-gke-credentials@v1
         with:
           cluster_name: ${{ secrets.GKE_CLUSTER }}
@@ -85,11 +74,8 @@ jobs:
         run: |
           echo "Extrayendo configuración de Prometheus de ConfigMap: ${PROMETHEUS_CONFIGMAP_NAME}..."
           
-          # Usa kubectl para obtener el ConfigMap, extrae la clave del YAML (-o jsonpath)
-          # y guarda el contenido en el archivo prometheus.yaml
           kubectl get configmap ${PROMETHEUS_CONFIGMAP_NAME} -n ${NAMESPACE} -o jsonpath="{.data.${CONFIG_KEY}}" > prometheus.yaml
           
-          # Verifica que el archivo no esté vacío (indicando una extracción exitosa)
           if [ ! -s prometheus.yaml ]; then
             echo "Error: El archivo prometheus.yaml está vacío. El ConfigMap o la clave son incorrectos."
             exit 1
@@ -101,36 +87,36 @@ jobs:
         run: |
           # Usa el archivo extraído (prometheus.yaml como fuente
           echo "Realizando conversión a config.alloy"
-          alloy convert --source-format=prometheus --output=config.alloy prometheus.yaml          
+          alloy convert --source-format=prometheus --output=config.alloy prometheus.yaml
+          
       - name: 🧪 Simulate Alloy Run (Dry Run)
-        if: success() && steps.validate.outcome == 'success'
+        # Corregido: La validación es implícita en 'alloy convert'. Usamos 'alloy validate' o un test
         run: |
+          echo "Validando sintaxis de config.alloy..."
+          /usr/local/bin/alloy validate config.alloy 
+          
           echo "Simulando ejecución de Alloy (Dry Run)..."
-          # Comando clave: Intenta inicializar todos los componentes sin conectarse a la red.
-          alloy run config.alloy --dry-run
+          /usr/local/bin/alloy run config.alloy --dry-run
           echo "Simulación de ejecución exitosa."
 
   deploy_alloy:
     needs: validate_config
     runs-on: ubuntu-latest
-    # Configura tu entorno de despliegue aquí
     environment: GKE-Production 
     
     steps:
       - name: ⬇️ Checkout code
         uses: actions/checkout@v4
 
-      - name: 🔒 Setup GKE Credentials
-        # Asegúrate de configurar los secrets en tu repositorio
+      - name: 🔒 Setup GKE Credentials (Authentication)
+        # La autenticación se debe repetir en este job.
         uses: google-github-actions/setup-gcloud@v1
         with:
-          cluster_name: ${{ env.GKE_CLUSTER }}
-          location: ${{ env.GKE_ZONE }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           service_account_key: ${{ secrets.GKE_SA_KEY }}
           export_default_credentials: true
 
-      - name: 🎯 Get GKE Kubeconfig
+      - name: 🎯 Get GKE Kubeconfig (Connect to Cluster)
         uses: google-github-actions/get-gke-credentials@v1
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
@@ -139,10 +125,15 @@ jobs:
           
       - name: 🚀 Apply Alloy Configuration and Deployment
         run: |
-          echo "Desplegando Grafana Alloy en el namespace ${NAMESPACE}..."
+          # Nota: Aquí se está usando el archivo 'config/config.alloy' que debería haber sido 
+          # previamente comprometido (commited) en el repositorio, ya que el paso de conversión
+          # en el job anterior solo crea el archivo localmente.
+          
+          echo "Desplegando Grafana Alloy en el namespace istio-system..."
           
           # 1. Crear/Actualizar ConfigMap
-          kubectl create configmap grafana-alloy-config -n ${NAMESPACE} --from-file=config.alloy=config/config.alloy --dry-run=client -o yaml | kubectl apply -f -
+          # Usamos el namespace del Job anterior
+          kubectl create configmap grafana-alloy-config -n istio-system --from-file=config.alloy=config/config.alloy --dry-run=client -o yaml | kubectl apply -f -
           
           # 2. Aplicar el Deployment (que montará el ConfigMap)
           kubectl apply -f k8s/alloy-deployment.yaml
