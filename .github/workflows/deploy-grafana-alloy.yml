@@ -90,7 +90,7 @@ jobs:
           
           # 2. Comando principal de extracción con go-template
           # El error persiste: La clave o el nombre del CM es incorrecto.
-          kubectl get configmap ${PROMETHEUS_CONFIGMAP_NAME} -n ${NAMESPACE} -o go-template='{{ index .data "${CONFIG_KEY}" }}' > prometheus.yaml
+          kubectl get configmap ${PROMETHEUS_CONFIGMAP_NAME} -n ${NAMESPACE} -o json | jq -r '.data."'"${CONFIG_KEY}"'"' > prometheus.yaml.alt
           
           # 3. VERIFICACIÓN DEL RESULTADO
           if [ ! -s prometheus.yaml ]; then
