@@ -1,11 +1,11 @@
-name: 'Deploy Grafana Alloy to Istio/GKE'
+name: 'CI/CD: Deploy Grafana Alloy to Istio/GKE'
 
 on:
   push:
     branches: [ "main", "master" ]
     paths:
-      - 'config/config.alloy'
-      - 'k8s/alloy-deployment.yaml'
+      - 'config/config.alloy'    # Se activa al cambiar la configuración de Alloy
+      - 'k8s/alloy-deployment.yaml' # Se activa al cambiar el Deployment de K8s
   workflow_dispatch:
 
 jobs:
@@ -16,41 +16,38 @@ jobs:
       - name: ⬇️ Checkout code
         uses: actions/checkout@v4
         
-      - name: ⚙️ Install Grafana Alloy Binaries (Corrected)
+      - name: ⚙️ Install Grafana Alloy Binaries (ZIP)
         id: install_alloy
         run: |
-          # Define la versión a instalar
-          ALLOY_VERSION="1.11.3" 
-          OS="linux"
-          ARCH="amd64"
-          FILENAME="v${ALLOY_VERSION}.tar.gz"
+          # --- Variables de la URL proporcionada ---
+          ALLOY_VERSION="v1.11.3"
+          FILENAME="alloy-linux-amd64.zip"
+          ALLOY_URL="https://github.com/grafana/alloy/releases/download/${ALLOY_VERSION}/${FILENAME}"
           
-          # URL exacta del binario de la release
-          ALLOY_URL="https://github.com/grafana/alloy/archive/refs/tags/v${ALLOY_VERSION}.tar.gz"
+          echo "Intentando descargar Grafana Alloy ${ALLOY_VERSION}..."
           
-          echo "Intentando descargar Grafana Alloy v${ALLOY_VERSION} desde ${ALLOY_URL}..."
-          
-          # Descarga el archivo, falla si el servidor devuelve un error (4xx/5xx)
+          # Descarga el archivo ZIP, falla si el servidor devuelve un error
+          # --fail asegura que falle si la URL es incorrecta
           curl -sL --fail -o ${FILENAME} ${ALLOY_URL}
           
-          # Verificar si curl falló (por ejemplo, si la URL no existe)
           if [ $? -ne 0 ]; then
             echo "Error: Fallo al descargar el archivo desde la URL. Verifica la versión y la URL."
             exit 1
           fi
           
-          # Descomprime (el contenido es solo el archivo 'alloy' en la raíz del tarball o en una carpeta)
-          tar -xvf ${FILENAME}
-          cd alloy-${ALLOY_VERSION}/bin
+          # Instalar unzip si no está presente (necesario para manejar archivos .zip)
+          echo "Instalando unzip..."
+          sudo apt-get update && sudo apt-get install -y unzip
           
-          # Mover el binario al PATH. El nombre del archivo desempaquetado a veces es solo 'alloy'
-          # Intentamos mover el archivo desempaquetado que coincide con el nombre del binario.
+          # Descomprimir el archivo ZIP
+          echo "Descomprimiendo el binario..."
+          unzip ${FILENAME}
+          
+          # Mover el binario 'alloy' al PATH
           if [ -f alloy ]; then
             sudo mv alloy /usr/local/bin/
-          elif [ -d alloy-${OS}-${ARCH} ]; then
-            sudo mv alloy-${OS}-${ARCH}/alloy /usr/local/bin/
           else
-            echo "Error: No se encontró el binario de Alloy desempaquetado."
+            echo "Error: No se encontró el binario 'alloy' desempaquetado. Verifique el contenido del ZIP."
             exit 1
           fi
 
@@ -62,6 +59,7 @@ jobs:
         run: |
           if [ -f config/config.alloy ]; then
             echo "Validando sintaxis de config/config.alloy..."
+            # Comando clave: Valida sintaxis y referencias entre componentes
             alloy validate config/config.alloy
             echo "La validación de sintaxis fue exitosa."
           else
@@ -73,42 +71,43 @@ jobs:
         if: success() && steps.validate.outcome == 'success'
         run: |
           echo "Simulando ejecución de Alloy (Dry Run)..."
+          # Comando clave: Intenta inicializar todos los componentes sin conectarse a la red.
           alloy run config/config.alloy --dry-run
           echo "Simulación de ejecución exitosa."
 
   deploy_alloy:
     needs: validate_config
     runs-on: ubuntu-latest
-    environment: GKE-Production   
+    # Configura tu entorno de despliegue aquí
+    environment: GKE-Production 
+    
     steps:
       - name: ⬇️ Checkout code
         uses: actions/checkout@v4
 
       - name: 🔒 Setup GKE Credentials
-        # Reemplaza con tu método real de autenticación GKE (ej. workloadi-identity)
+        # Asegúrate de configurar los secrets en tu repositorio
         uses: google-github-actions/setup-gcloud@v1
         with:
           project_id: ${{ secrets.GKE_PROJECT }}
-          service_account_key: ${{ secrets.GKE_SA_KEY }} # Usa un Secret de GitHub
+          service_account_key: ${{ secrets.GKE_SA_KEY }} 
           export_default_credentials: true
 
       - name: 🎯 Get GKE Kubeconfig
-        # Conéctate al clúster donde está Istio-System
         uses: google-github-actions/get-gke-credentials@v1
         with:
           cluster_name: ${{ secrets.GKE_CLUSTER_NAME }}
           location: ${{ secrets.GKE_CLUSTER_LOCATION }}
           
       - name: 🚀 Apply Alloy Configuration and Deployment
-        # Aplica los manifiestos de Kubernetes
         run: |
-          NAMESPACE="istio-system" # Define el namespace donde quieres desplegar Alloy (no istio-system)
+          NAMESPACE="monitoring"
           echo "Desplegando Grafana Alloy en el namespace ${NAMESPACE}..."
           
-          # 1. Crear/Actualizar ConfigMap con la nueva config.alloy
+          # 1. Crear/Actualizar ConfigMap
           kubectl create configmap grafana-alloy-config -n ${NAMESPACE} --from-file=config.alloy=config/config.alloy --dry-run=client -o yaml | kubectl apply -f -
           
           # 2. Aplicar el Deployment (que montará el ConfigMap)
           kubectl apply -f k8s/alloy-deployment.yaml
           
-          echo "Despliegue de Grafana Alloy iniciado. Verifica los pods y el sidecar de Istio."
+          echo "Despliegue de Grafana Alloy completado. Ahora actualiza la fuente de datos en Grafana (istio-system)."
