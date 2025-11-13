@@ -23,7 +23,7 @@ jobs:
           ALLOY_VERSION="1.11.3" 
           OS="linux"
           ARCH="amd64"
-          FILENAME="alloy-${OS}-${ARCH}.tar.gz"
+          FILENAME="v${ALLOY_VERSION}.tar.gz"
           
           # URL exacta del binario de la release
           ALLOY_URL="https://github.com/grafana/alloy/archive/refs/tags/v${ALLOY_VERSION}.tar.gz"
@@ -41,6 +41,7 @@ jobs:
           
           # Descomprime (el contenido es solo el archivo 'alloy' en la raíz del tarball o en una carpeta)
           tar -xvf ${FILENAME}
+          cd alloy-${ALLOY_VERSION}/bin
           
           # Mover el binario al PATH. El nombre del archivo desempaquetado a veces es solo 'alloy'
           # Intentamos mover el archivo desempaquetado que coincide con el nombre del binario.
