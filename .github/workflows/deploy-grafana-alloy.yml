@@ -1,12 +1,11 @@
-name: 'CI/CD: Deploy Grafana Alloy to Istio/GKE'
+name: 'Deploy Grafana Alloy to Istio/GKE'
 
 on:
   push:
-    branches: 
-      - main
+    branches: [ "main", "master" ]
     paths:
-      - 'config/config.alloy'    # Se activa al cambiar la configuración de Alloy
-      - 'k8s/alloy-deployment.yaml' # Se activa al cambiar el Deployment de K8s
+      - 'config/config.alloy'
+      - 'k8s/alloy-deployment.yaml'
   workflow_dispatch:
 
 jobs:
@@ -17,17 +16,29 @@ jobs:
       - name: ⬇️ Checkout code
         uses: actions/checkout@v4
         
-      - name: ⚙️ Install Grafana Alloy
-        # Usar la acción correcta: grafana/setup-agent
-        uses: grafana/setup-agent@v1 # <-- ACCIÓN CORRECTA
-        with:
-          # Para la versión de Alloy, usa 'alloy' como el tipo de binario
-          type: 'alloy'
-          version: 'latest'
-
+      - name: ⚙️ Install Grafana Alloy Binaries
+        id: install_alloy
+        run: |
+          # Define la versión de Alloy a instalar
+          ALLOY_VERSION="1.1.0" # Puedes ajustar la versión si lo necesitas
+          OS="linux"
+          ARCH="amd64"
+          
+          # Descarga el tarball desde el repositorio de GitHub de Alloy
+          ALLOY_URL="https://github.com/grafana/alloy/releases/download/v${ALLOY_VERSION}/alloy-${OS}-${ARCH}.tar.gz"
+          
+          echo "Descargando Grafana Alloy v${ALLOY_VERSION}..."
+          curl -LO ${ALLOY_URL}
+          
+          # Descomprime y mueve el binario al PATH
+          tar -xvf alloy-*.tar.gz
+          sudo mv alloy-${OS}-${ARCH}/alloy /usr/local/bin/
+          
+          # Verificar la instalación
+          alloy --version
+          
       - name: ✅ Validate Alloy Configuration Syntax
         id: validate
-        # Comando para verificar la sintaxis del archivo que se usará en el ConfigMap
         run: |
           if [ -f config/config.alloy ]; then
             echo "Validando sintaxis de config/config.alloy..."
@@ -39,7 +50,6 @@ jobs:
           fi
           
       - name: 🧪 Simulate Alloy Run (Dry Run)
-        # Intenta inicializar todos los componentes sin conectarse
         if: success() && steps.validate.outcome == 'success'
         run: |
           echo "Simulando ejecución de Alloy (Dry Run)..."
@@ -49,9 +59,7 @@ jobs:
   deploy_alloy:
     needs: validate_config
     runs-on: ubuntu-latest
-    # Se ejecuta solo si la validación es exitosa
-    environment: GKE-Production # Puedes usar un entorno de GitHub para gestionar credenciales
-    
+    environment: GKE-Production   
     steps:
       - name: ⬇️ Checkout code
         uses: actions/checkout@v4
