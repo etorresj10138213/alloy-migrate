@@ -68,6 +68,7 @@ jobs:
         with:
           cluster_name: ${{ env.GKE_CLUSTER }}
           location: ${{ env.GKE_ZONE }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
 
       - name: 🎯 Get GKE Kubeconfig
         # Conéctate al clúster
@@ -123,6 +124,7 @@ jobs:
         with:
           cluster_name: ${{ env.GKE_CLUSTER }}
           location: ${{ env.GKE_ZONE }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
 
       - name: 🎯 Get GKE Kubeconfig
         uses: google-github-actions/get-gke-credentials@v1
