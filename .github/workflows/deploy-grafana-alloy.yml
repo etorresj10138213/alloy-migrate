@@ -89,7 +89,7 @@ jobs:
           
           # Usa kubectl para obtener el ConfigMap, extrae la clave del YAML (-o jsonpath)
           # y guarda el contenido en el archivo prometheus.yaml
-          kubectl get configmap ${PROMETHEUS_CONFIGMAP_NAME} -n ${NAMESPACE} -o yaml > prometheus.yaml
+          kubectl get configmap ${PROMETHEUS_CONFIGMAP_NAME} -n ${NAMESPACE} -o go-template='{{ index .data "${CONFIG_KEY}" }}' > prometheus.yaml
           
           # Verifica que el archivo no esté vacío (indicando una extracción exitosa)
           if [ ! -s prometheus.yaml ]; then
