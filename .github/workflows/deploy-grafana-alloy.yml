@@ -15,7 +15,9 @@ jobs:
       NAMESPACE: istio-system
       PROMETHEUS_CONFIGMAP_NAME: prometheus-config # Nombre de tu ConfigMap actual de Prometheus
       CONFIG_KEY: prometheus.yml
-      GCLOUD_PROJECT: ${{ secrets.GKE_PROJECT_ID }}
+      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      GKE_CLUSTER: ${{ secrets.GKE_CLUSTER }}
+      GKE_ZONE: ${{ secrets.GKE_ZONE }}
 
     steps:
       - name: ⬇️ Checkout code
