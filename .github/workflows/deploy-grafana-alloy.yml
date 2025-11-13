@@ -12,7 +12,7 @@ env:
   GKE_ZONE: ${{ secrets.GKE_ZONE }}
   NAMESPACE: istio-system
   PROMETHEUS_CONFIGMAP_NAME: prometheus # Nombre de tu ConfigMap actual de Prometheus
-  CONFIG_KEY: prometheus.yml
+  CONFIG_KEY: alerting_rules.yml
 
 jobs:
   build-and-deploy:
