@@ -73,6 +73,7 @@ jobs:
         uses: google-github-actions/get-gke-credentials@v1
         with:
           cluster_name: ${{ secrets.GKE_CLUSTER }}
+          project_id: ${{ secrets.GKE_PROJECT_ID }}
           location: ${{ secrets.GKE_ZONE }}
           
       - name: 📥 Extract Prometheus Config from GKE ConfigMap
@@ -126,6 +127,7 @@ jobs:
       - name: 🎯 Get GKE Kubeconfig
         uses: google-github-actions/get-gke-credentials@v1
         with:
+          project_id: ${{ secrets.GKE_PROJECT_ID }}
           cluster_name: ${{ secrets.GKE_CLUSTER }}
           location: ${{ secrets.GKE_ZONE }}
           
