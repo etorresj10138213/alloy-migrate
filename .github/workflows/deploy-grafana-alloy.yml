@@ -67,6 +67,7 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.GCP_PROJECT_ID }}
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
           # Asegura que las credenciales estén disponibles para Docker y kubectl
           setup_gcloud: true 
 
@@ -75,6 +76,7 @@ jobs:
         uses: google-github-actions/get-gke-credentials@v2
         with:
           project_id: ${{ env.GCP_PROJECT_ID }}
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
           cluster_name: ${{ env.GKE_CLUSTER }}
           location: ${{ env.GKE_ZONE }}
           
@@ -123,6 +125,7 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.GCP_PROJECT_ID }}
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
           # Asegura que las credenciales estén disponibles para Docker y kubectl
           setup_gcloud: true 
 
@@ -130,6 +133,7 @@ jobs:
         uses: google-github-actions/get-gke-credentials@v2
         with:
           project_id: ${{ env.GCP_PROJECT_ID }}
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
           cluster_name: ${{ env.GKE_CLUSTER }}
           location: ${{ env.GKE_ZONE }}
 
