@@ -122,12 +122,12 @@ jobs:
           mv filtered_prometheus.yaml prometheus.yaml
           
           echo "Configuración filtrada:"
-          cat prometheus.yaml # Muestra el contenido filtrado
-          
+
       - name: 🔄 Convert Prometheus to Alloy & Validate
         id: convert_validate
         run: |
-          # Usa el archivo extraído (prometheus.yaml como fuente
+          # Usa el archivo extraído prometheus.yaml como fuente
+          cat prometheus.yaml # Muestra el contenido filtrado
           echo "Realizando conversión a config.alloy"
           alloy convert --source-format=prometheus --output=config.alloy prometheus.yaml          
       - name: 🧪 Simulate Alloy Run (Dry Run)
@@ -144,7 +144,7 @@ jobs:
           echo "Desplegando Grafana Alloy en el namespace ${NAMESPACE}..."
           
           # 1. Crear/Actualizar ConfigMap
-          kubectl create configmap grafana-alloy-config -n ${NAMESPACE} --from-file=config.alloy=config/config.alloy --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create configmap grafana-alloy-config -n ${NAMESPACE} --from-file=config.alloy=config.alloy --dry-run=client -o yaml | kubectl apply -f -
           
           # 2. Aplicar el Deployment (que montará el ConfigMap)
           kubectl apply -f k8s/alloy-deployment.yaml
